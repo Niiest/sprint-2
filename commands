@@ -1,0 +1,10 @@
+docker exec -it infra-kafka-0-1 /opt/bitnami/kafka/bin/kafka-topics.sh --create --topic user-likes-stream --bootstrap-server localhost:9092 --partitions 3 --replication-factor 2
+
+
+docker exec -it infra-kafka-0-1 /opt/bitnami/kafka/bin/kafka-topics.sh  --describe --topic user-likes-stream  --bootstrap-server localhost:9092
+
+
+docker exec -it infra-kafka-0-1 /opt/bitnami/kafka/bin/kafka-topics.sh --create --topic user-like-group-table --bootstrap-server localhost:9092 --partitions 3 --replication-factor 2 --config cleanup.policy=compact
+
+
+docker exec -it infra-kafka-0-1 /opt/bitnami/kafka/bin/kafka-topics.sh  --describe --topic user-like-group-table  --bootstrap-server localhost:9092
