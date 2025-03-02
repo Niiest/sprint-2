@@ -13,6 +13,12 @@ import (
 	"github.com/lovoo/goka"
 )
 
+var (
+	brokers             = []string{"127.0.0.1:29092"}
+	topic   goka.Stream = "user-likes-stream"
+	group   goka.Group  = "user-like-group"
+)
+
 // UserLike — объект, который отправляет пользователь в топик
 type UserLike struct {
 	Like   bool //лайк поставленный пользователем
@@ -20,22 +26,19 @@ type UserLike struct {
 	PostId int  // id статьи которой был поставлен лайк
 }
 
-// Codec decodes and encodes from and to []byte
-type Codec interface {
-	Encode(value interface{}) (data []byte, err error)
-	Decode(data []byte) (value interface{}, err error)
-}
-
+// userLikeCodec позволяет сериализовать и десериализовать UserLike.
 type userLikeCodec struct{}
 
-func (ul *userLikeCodec) Encode(value interface{}) (data []byte, err error) {
-	if _, isUserLike := value.(*UserLike); !isUserLike {
+// Encode переводит UserLike в []byte
+func (uc *userLikeCodec) Encode(value any) ([]byte, error) {
+	if _, isUser := value.(*UserLike); !isUser {
 		return nil, fmt.Errorf("тип должен быть *UserLike, получен %T", value)
 	}
 	return json.Marshal(value)
 }
 
-func (ul *userLikeCodec) Decode(data []byte) (any, error) {
+// Decode переводит UserLike из []byte в структуру.
+func (uc *userLikeCodec) Decode(data []byte) (any, error) {
 	var (
 		userLike UserLike
 		err      error
@@ -102,11 +105,8 @@ func runEmitter() {
 	}
 }
 
-// ProcessCallback function is called for every message received by the
-// processor.
-type ProcessCallback func(ctx goka.Context, msg interface{})
-
 func process(ctx goka.Context, msg any) {
+
 	var userLike *UserLike
 	var ok bool
 	var userPost *UserPost
@@ -127,7 +127,6 @@ func process(ctx goka.Context, msg any) {
 	log.Printf("[proc] key: %s,  msg: %v, data in group_table %v \n", ctx.Key(), userLike, userPost)
 }
 
-// runProcessor обрабатывает сообщения из топиков кафка
 func runProcessor() {
 	g := goka.DefineGroup(group,
 		goka.Input(topic, new(userLikeCodec), process),
@@ -146,6 +145,7 @@ func runProcessor() {
 }
 
 func runView() {
+
 	view, err := goka.NewView(brokers,
 		goka.GroupTable(group),
 		new(userPostCodec),
@@ -154,16 +154,23 @@ func runView() {
 		log.Fatal(err)
 	}
 
-	router := mux.NewRouter()
-	router.HandleFunc("/{key}", func(w http.ResponseWriter, r *http.Request) {
+	root := mux.NewRouter()
+	root.HandleFunc("/{key}", func(w http.ResponseWriter, r *http.Request) {
 		value, _ := view.Get(mux.Vars(r)["key"])
 		data, _ := json.Marshal(value)
 		w.Write(data)
 	})
-	fmt.Println("View opened at http://localhost:9095/")
-	go http.ListenAndServe(":9095", router)
-
-	view.Run(context.Background())
+	log.Println("View opened at http://localhost:9095/")
+	go func() {
+		err = http.ListenAndServe(":9095", root)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+	err = view.Run(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func main() {
