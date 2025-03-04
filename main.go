@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	brokers             = []string{"127.0.0.1:29092"}
+	brokers             = []string{"127.0.0.1:9094"}
 	topic   goka.Stream = "user-likes-stream"
 	group   goka.Group  = "user-like-group"
 )
@@ -160,9 +160,9 @@ func runView() {
 		data, _ := json.Marshal(value)
 		w.Write(data)
 	})
-	log.Println("View opened at http://localhost:9095/")
+	log.Println("View opened at http://localhost:9097/")
 	go func() {
-		err = http.ListenAndServe(":9095", root)
+		err = http.ListenAndServe(":9097", root)
 		if err != nil {
 			log.Fatal(err)
 		}
